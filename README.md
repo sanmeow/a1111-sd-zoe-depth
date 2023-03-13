@@ -8,5 +8,5 @@ https://huggingface.co/spaces/shariqfarooq/ZoeDepth
 The "Download" is not funtioning since the different version of gradio.  
 Might try to find a way to make a button.  
 
-This is now the easist way to generate 3D for now.  
+This is the easist way to generate 3D for now.  
 You can print screen another angle,genarate new image with i2i.
