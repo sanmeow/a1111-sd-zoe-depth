@@ -4,8 +4,8 @@ import trimesh
 from geometry import depth_to_points, create_triangles
 from functools import partial
 import tempfile
-
-
+import torch
+import gc
 def depth_edges_mask(depth):
     """Returns a mask of edges in the depth map.
     Args:
@@ -48,22 +48,38 @@ def get_mesh(model, image, keep_edges=False):
     # Save as glb
     glb_file = tempfile.NamedTemporaryFile(suffix='.glb', delete=False)
     glb_path = glb_file.name
+    print(glb_path)
     mesh.export(glb_path)
+    mesh.export(f'./extensions/a1111-sd-zoe-depth/temp.glb')
+    del mesh
+    del depth
+    del image
+    del triangles
+    torch.cuda.empty_cache()
+    gc.collect
     return glb_path
 
-def create_demo(model):
+def convert_mesh():
+    temp_mesh = f'./extensions/a1111-sd-zoe-depth/temp.glb'
+    return temp_mesh
 
+def create_demo(model):
+    DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+    if model == {}:
+        model = torch.hub.load('isl-org/ZoeDepth', "ZoeD_N", pretrained=True).to(DEVICE).eval()
     gr.Markdown("### Image to 3D mesh")
     gr.Markdown("Convert a single 2D image to a 3D mesh")
 
     with gr.Row():
-        image = gr.Image(label="Input Image", type='pil')
+        input_image = gr.Image(label="Input Image", type='pil')
         result = gr.Model3D(label="3d mesh reconstruction", clear_color=[
                                                  1.0, 1.0, 1.0, 1.0])
-    
+        
     checkbox = gr.Checkbox(label="Keep occlusion edges", value=False)
     submit = gr.Button("Submit")
-    submit.click(partial(get_mesh, model), inputs=[image, checkbox], outputs=[result])
+    submit.click(partial(get_mesh, model), inputs=[input_image, checkbox], outputs=[result])
+    download = gr.Button("Download")
+    download.click(convert_mesh,outputs=[gr.File(label="3d glb")])
 #    examples = gr.Examples(examples=["examples/aerial_beach.jpeg", "examples/mountains.jpeg", "examples/person_1.jpeg", "examples/ancient-carved.jpeg"],
 #                            inputs=[image])
 

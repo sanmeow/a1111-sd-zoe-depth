@@ -4,7 +4,8 @@ import trimesh
 from geometry import create_triangles
 from functools import partial
 import tempfile
-
+import torch
+import gc
 def depth_edges_mask(depth):
     """Returns a mask of edges in the depth map.
     Args:
@@ -50,7 +51,6 @@ def pano_depth_to_world_points(depth):
 
     return pts3d
 
-
 def predict_depth(model, image):
     depth = model.infer_pil(image)
     return depth
@@ -76,10 +76,25 @@ def get_mesh(model, image, keep_edges=False):
     # Save as glb
     glb_file = tempfile.NamedTemporaryFile(suffix='.glb', delete=False)
     glb_path = glb_file.name
+    print(glb_path)
     mesh.export(glb_path)
+    mesh.export(f'./extensions/a1111-sd-zoe-depth/temp.glb')
+    del mesh
+    del depth
+    del image
+    del triangles
+    torch.cuda.empty_cache()
+    gc.collect
     return glb_path
 
+def convert_mesh():
+    temp_mesh = f'./extensions/a1111-sd-zoe-depth/temp.glb'
+    return temp_mesh
+
 def create_demo(model):
+    DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+    if model == {}:
+        model = torch.hub.load('isl-org/ZoeDepth', "ZoeD_N", pretrained=True).to(DEVICE).eval()
     gr.Markdown("### Panorama to 3D mesh")
     gr.Markdown("Convert a 360 spherical panorama to a 3D mesh")
     gr.Markdown("ZoeDepth was not trained on panoramic images. It doesn't know anything about panoramas or spherical projection. Here, we just treat the estimated depth as radius and some projection errors are expected. Nonetheless, ZoeDepth still works surprisingly well on 360 reconstruction.")
@@ -88,9 +103,10 @@ def create_demo(model):
         input_image = gr.Image(label="Input Image", type='pil')
         result = gr.Model3D(label="3d mesh reconstruction", clear_color=[
                                                  1.0, 1.0, 1.0, 1.0])
-        
     checkbox = gr.Checkbox(label="Keep occlusion edges", value=True)
     submit = gr.Button("Submit")
     submit.click(partial(get_mesh, model), inputs=[input_image, checkbox], outputs=[result])
+    download = gr.Button("Download")
+    download.click(convert_mesh,outputs=[gr.File(label="3d glb")])
 #    examples = gr.Examples(examples=["examples/pano_1.jpeg", "examples/pano_2.jpeg", "examples/pano_3.jpeg"],
 #                            inputs=[input_image])
